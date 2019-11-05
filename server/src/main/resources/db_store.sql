@@ -1,12 +1,12 @@
 -- the table to store GlobalSession data
-drop table `global_table`;
+drop table if exists `global_table`;
 create table `global_table` (
   `xid` varchar(128)  not null,
   `transaction_id` bigint,
   `status` tinyint not null,
   `application_id` varchar(32),
   `transaction_service_group` varchar(32),
-  `transaction_name` varchar(64),
+  `transaction_name` varchar(128),
   `timeout` int,
   `begin_time` bigint,
   `application_data` varchar(2000),
@@ -18,7 +18,7 @@ create table `global_table` (
 );
 
 -- the table to store BranchSession data
-drop table `branch_table`;
+drop table if exists `branch_table`;
 create table `branch_table` (
   `branch_id` bigint not null,
   `xid` varchar(128) not null,
@@ -37,7 +37,7 @@ create table `branch_table` (
 );
 
 -- the table to store lock data
-drop table `lock_table`;
+drop table if exists `lock_table`;
 create table `lock_table` (
   `row_key` varchar(128) not null,
   `xid` varchar(96),
@@ -45,7 +45,7 @@ create table `lock_table` (
   `branch_id` long,
   `resource_id` varchar(256) ,
   `table_name` varchar(32) ,
-  `pk` varchar(32) ,
+  `pk` varchar(36) ,
   `gmt_create` datetime ,
   `gmt_modified` datetime,
   primary key(`row_key`)
