@@ -15,25 +15,26 @@
  */
 package io.seata.saga.engine.repo.impl;
 
-import io.seata.common.util.StringUtils;
-import io.seata.saga.engine.store.StateLangStore;
-import io.seata.saga.engine.repo.StateMachineRepository;
-import io.seata.saga.statelang.domain.DomainConstants;
-import io.seata.saga.statelang.domain.StateMachine;
-import io.seata.saga.statelang.parser.StateMachineParserFactory;
-import io.seata.saga.engine.sequence.SeqGenerator;
-import io.seata.saga.engine.sequence.SpringJvmUUIDSeqGenerator;
-import io.seata.saga.statelang.parser.utils.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import io.seata.common.util.CollectionUtils;
+import io.seata.common.util.StringUtils;
+import io.seata.saga.engine.repo.StateMachineRepository;
+import io.seata.saga.engine.sequence.SeqGenerator;
+import io.seata.saga.engine.sequence.SpringJvmUUIDSeqGenerator;
+import io.seata.saga.engine.store.StateLangStore;
+import io.seata.saga.statelang.domain.DomainConstants;
+import io.seata.saga.statelang.domain.StateMachine;
+import io.seata.saga.statelang.parser.StateMachineParserFactory;
+import io.seata.saga.statelang.parser.utils.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
 
 /**
  * StateMachineRepository Implementation
@@ -42,63 +43,36 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class StateMachineRepositoryImpl implements StateMachineRepository {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(StateMachineRepositoryImpl.class);
     private Map<String/** Name_Tenant **/, Item> stateMachineMapByNameAndTenant = new ConcurrentHashMap<>();
     private Map<String/** Id **/, Item> stateMachineMapById = new ConcurrentHashMap<>();
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(StateMachineRepositoryImpl.class);
-
     private StateLangStore stateLangStore;
     private SeqGenerator seqGenerator = new SpringJvmUUIDSeqGenerator();
     private String charset = "UTF-8";
     private String defaultTenantId;
 
-    private static class Item {
-
-        private StateMachine value;
-
-        private Item() {
-        }
-
-        private Item(StateMachine value) {
-            this.value = value;
-        }
-
-        public StateMachine getValue() {
-            return value;
-        }
-
-        public void setValue(StateMachine value) {
-            this.value = value;
-        }
-    }
-
     @Override
     public StateMachine getStateMachineById(String stateMachineId) {
-
-        Item item = stateMachineMapById.get(stateMachineId);
-        if (item == null) {
-            Item newItem = new Item();
-            item = stateMachineMapById.putIfAbsent(stateMachineId, newItem);
-            if (item == null) {
-                item = newItem;
-            }
-
-        }
+        Item item = CollectionUtils.computeIfAbsent(stateMachineMapById, stateMachineId,
+            key -> new Item());
         if (item.getValue() == null && stateLangStore != null) {
             synchronized (item) {
                 if (item.getValue() == null && stateLangStore != null) {
                     StateMachine stateMachine = stateLangStore.getStateMachineById(stateMachineId);
                     if (stateMachine != null) {
-                        StateMachine parsedStatMachine = StateMachineParserFactory.getStateMachineParser().parse(stateMachine.getContent());
+                        StateMachine parsedStatMachine = StateMachineParserFactory.getStateMachineParser().parse(
+                            stateMachine.getContent());
                         if (parsedStatMachine == null) {
-                            throw new RuntimeException("Parse State Language failed, stateMachineId：" + stateMachine.getId() + ", name:" + stateMachine.getName());
+                            throw new RuntimeException(
+                                "Parse State Language failed, stateMachineId:" + stateMachine.getId() + ", name:"
+                                    + stateMachine.getName());
                         }
                         stateMachine.setStartState(parsedStatMachine.getStartState());
                         stateMachine.getStates().putAll(parsedStatMachine.getStates());
                         item.setValue(stateMachine);
-                        stateMachineMapByNameAndTenant.put(stateMachine.getName() + "_" + stateMachine.getTenantId(), item);
+                        stateMachineMapById.put(stateMachine.getName() + "_" + stateMachine.getTenantId(),
+                            item);
                     }
-
                 }
             }
         }
@@ -107,22 +81,19 @@ public class StateMachineRepositoryImpl implements StateMachineRepository {
 
     @Override
     public StateMachine getStateMachine(String stateMachineName, String tenantId) {
-        Item item = stateMachineMapByNameAndTenant.get(stateMachineName + "_" + tenantId);
-        if (item == null) {
-            Item newItem = new Item();
-            item = stateMachineMapByNameAndTenant.putIfAbsent(stateMachineName + "_" + tenantId, newItem);
-            if (item == null) {
-                item = newItem;
-            }
-        }
+        Item item = CollectionUtils.computeIfAbsent(stateMachineMapByNameAndTenant, stateMachineName + "_" + tenantId,
+            key -> new Item());
         if (item.getValue() == null && stateLangStore != null) {
             synchronized (item) {
                 if (item.getValue() == null && stateLangStore != null) {
                     StateMachine stateMachine = stateLangStore.getLastVersionStateMachine(stateMachineName, tenantId);
                     if (stateMachine != null) {
-                        StateMachine parsedStatMachine = StateMachineParserFactory.getStateMachineParser().parse(stateMachine.getContent());
+                        StateMachine parsedStatMachine = StateMachineParserFactory.getStateMachineParser().parse(
+                            stateMachine.getContent());
                         if (parsedStatMachine == null) {
-                            throw new RuntimeException("Parse State Language failed, stateMachineId：" + stateMachine.getId() + ", name:" + stateMachine.getName());
+                            throw new RuntimeException(
+                                "Parse State Language failed, stateMachineId:" + stateMachine.getId() + ", name:"
+                                    + stateMachine.getName());
                         }
                         stateMachine.setStartState(parsedStatMachine.getStartState());
                         stateMachine.getStates().putAll(parsedStatMachine.getStates());
@@ -159,8 +130,8 @@ public class StateMachineRepositoryImpl implements StateMachineRepository {
                 } catch (UnsupportedEncodingException e) {
                     LOGGER.error(e.getMessage(), e);
                 }
-                if (Arrays.equals(bytesContent, oldBytesContent) && stateMachine.getVersion() != null && stateMachine.getVersion().equals(
-                    oldStateMachine.getVersion())) {
+                if (Arrays.equals(bytesContent, oldBytesContent) && stateMachine.getVersion() != null && stateMachine
+                    .getVersion().equals(oldStateMachine.getVersion())) {
 
                     LOGGER.info("StateMachine[{}] is already exist a same version", stateMachineName);
 
@@ -173,7 +144,9 @@ public class StateMachineRepositoryImpl implements StateMachineRepository {
                     return stateMachine;
                 }
             }
-            stateMachine.setId(seqGenerator.generate(DomainConstants.SEQ_ENTITY_STATE_MACHINE));
+            if (StringUtils.isBlank(stateMachine.getId())) {
+                stateMachine.setId(seqGenerator.generate(DomainConstants.SEQ_ENTITY_STATE_MACHINE));
+            }
             stateMachine.setGmtCreate(new Date());
             stateLangStore.storeStateMachine(stateMachine);
         }
@@ -200,8 +173,9 @@ public class StateMachineRepositoryImpl implements StateMachineRepository {
                         stateMachine.setTenantId(tenantId);
                     }
                     registryStateMachine(stateMachine);
-
-                    LOGGER.info("===== StateMachine Loaded: \n{}", json);
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("===== StateMachine Loaded: \n{}", json);
+                    }
                 }
             }
         }
@@ -229,5 +203,25 @@ public class StateMachineRepositoryImpl implements StateMachineRepository {
 
     public void setDefaultTenantId(String defaultTenantId) {
         this.defaultTenantId = defaultTenantId;
+    }
+
+    private static class Item {
+
+        private StateMachine value;
+
+        private Item() {
+        }
+
+        private Item(StateMachine value) {
+            this.value = value;
+        }
+
+        public StateMachine getValue() {
+            return value;
+        }
+
+        public void setValue(StateMachine value) {
+            this.value = value;
+        }
     }
 }

@@ -35,6 +35,9 @@ dependency-reduced-pom.xml
 /server/sessionStore/
 /server/db_store/
 /sessionStore/
+/test/sessionStore/
+/distribution/sessionStore/
+/file_store/
 
 # system ignore
 .DS_Store

@@ -15,13 +15,14 @@
  */
 package io.seata.saga.proctrl.impl;
 
-import io.seata.saga.proctrl.HierarchicalProcessContext;
-import io.seata.saga.proctrl.Instruction;
-import io.seata.saga.proctrl.ProcessContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import io.seata.saga.proctrl.HierarchicalProcessContext;
+import io.seata.saga.proctrl.Instruction;
+import io.seata.saga.proctrl.ProcessContext;
 
 /**
  * The default process context implementation
@@ -36,7 +37,6 @@ public class ProcessContextImpl implements HierarchicalProcessContext, ProcessCo
 
     @Override
     public Object getVariable(String name) {
-
         if (variables.containsKey(name)) {
             return variables.get(name);
         }
@@ -52,12 +52,10 @@ public class ProcessContextImpl implements HierarchicalProcessContext, ProcessCo
     public void setVariable(String name, Object value) {
         if (variables.containsKey(name)) {
             setVariableLocally(name, value);
-        }
-        else {
+        } else {
             if (parent != null) {
                 parent.setVariable(name, value);
-            }
-            else {
+            } else {
                 setVariableLocally(name, value);
             }
         }
@@ -65,27 +63,21 @@ public class ProcessContextImpl implements HierarchicalProcessContext, ProcessCo
 
     @Override
     public Map<String, Object> getVariables() {
-        Map<String, Object> collectedVariables = new HashMap<>();
+        final Map<String, Object> collectedVariables = new HashMap<>();
 
-        if(parent != null){
+        if (parent != null) {
             collectedVariables.putAll(parent.getVariables());
         }
-        for (String name : variables.keySet()) {
-            collectedVariables.put(name, variables.get(name));
-        }
+        variables.forEach(collectedVariables::put);
         return collectedVariables;
     }
 
     @Override
-    public void setVariables(Map<String, Object> variables) {
-
+    public void setVariables(final Map<String, Object> variables) {
         if (variables != null) {
-            for (String name : variables.keySet()) {
-                setVariable(name, variables.get(name));
-            }
+            variables.forEach(this::setVariable);
         }
     }
-
 
     @Override
     public Object getVariableLocally(String name) {
@@ -124,13 +116,13 @@ public class ProcessContextImpl implements HierarchicalProcessContext, ProcessCo
     }
 
     @Override
-    public <T extends Instruction> T getInstruction(Class<T> clazz) {
-        return (T)instruction;
+    public void setInstruction(Instruction instruction) {
+        this.instruction = instruction;
     }
 
     @Override
-    public void setInstruction(Instruction instruction) {
-        this.instruction = instruction;
+    public <T extends Instruction> T getInstruction(Class<T> clazz) {
+        return (T)instruction;
     }
 
     @Override
@@ -139,21 +131,21 @@ public class ProcessContextImpl implements HierarchicalProcessContext, ProcessCo
     }
 
     @Override
-    public void removeVariable(String name) {
+    public Object removeVariable(String name) {
         if (variables.containsKey(name)) {
-            variables.remove(name);
-            return;
+            return variables.remove(name);
         }
 
         if (parent != null) {
-            parent.removeVariable(name);
-            return;
+            return parent.removeVariable(name);
         }
+
+        return null;
     }
 
     @Override
-    public void removeVariableLocally(String name) {
-        variables.remove(name);
+    public Object removeVariableLocally(String name) {
+        return variables.remove(name);
     }
 
     @Override
@@ -171,10 +163,6 @@ public class ProcessContextImpl implements HierarchicalProcessContext, ProcessCo
 
     @Override
     public String toString() {
-        return "{" +
-                "variables=" + variables +
-                ", instruction=" + instruction +
-                ", parent=" + parent +
-                '}';
+        return "{" + "variables=" + variables + ", instruction=" + instruction + ", parent=" + parent + '}';
     }
 }
